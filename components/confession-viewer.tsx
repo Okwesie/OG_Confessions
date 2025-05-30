@@ -84,10 +84,8 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
   const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // NEW: Ready/Go countdown states
-  const [showCountdown, setShowCountdown] = useState(false)
-  const [countdownText, setCountdownText] = useState("")
-  const [canPause, setCanPause] = useState(false)
+  // NEW: Ready/Go overlay state
+  const [showReadyGo, setShowReadyGo] = useState<"none" | "ready" | "go">("none")
 
   // Load confessions from API
   useEffect(() => {
@@ -175,38 +173,22 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
     }
   }
 
-  // NEW: Ready/Go countdown function
-  const startCountdown = () => {
-    setShowCountdown(true)
-    setCanPause(true)
-
-    // Show "Ready" for 1 second
-    setCountdownText("Ready")
-
-    // Use setTimeout instead of async/await for more reliable UI updates
+  // NEW: Ready/Go overlay function
+  const startReadyGo = () => {
+    setShowReadyGo("ready")
     setTimeout(() => {
-      // Check if user paused during countdown
-      if (!canPause) return
-
-      // Show "Go" for 0.5 seconds
-      setCountdownText("Go")
-
-      // After 0.5 seconds, start playing
+      setShowReadyGo("go")
       setTimeout(() => {
-        // Check if user paused during countdown
-        if (!canPause) return
-
-        // Start playing immediately
-        setShowCountdown(false)
+        setShowReadyGo("none")
         setIsAutoPlaying(true)
         trackEvent("view")
-      }, 500)
-    }, 1000)
+      }, 1500) // "Go" overlay duration: 1.5 seconds
+    }, 1500)   // "Ready" overlay duration: 1.5 seconds
   }
 
   // Auto-play functionality with speed control
   useEffect(() => {
-    if (!isAutoPlaying || !confessionSections[currentSection] || showCountdown) return
+    if (!isAutoPlaying || !confessionSections[currentSection] || showReadyGo !== "none") return
 
     const currentSectionData = confessionSections[currentSection]
     const speed = baseWordsPerSecond * playbackSpeeds[playbackSpeed].multiplier
@@ -237,7 +219,7 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
     }, intervalTime)
 
     return () => clearInterval(interval)
-  }, [isAutoPlaying, currentSection, confessionSections, playbackSpeed, showCountdown])
+  }, [isAutoPlaying, currentSection, confessionSections, playbackSpeed, showReadyGo])
 
   const currentConfession = confessions[currentConfessionIndex]
   const currentSectionData = confessionSections[currentSection]
@@ -292,20 +274,19 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
     setCurrentSection(0)
     setReadingProgress(0)
     setShowEndScreen(false)
-    startCountdown() // Use countdown for replay too
+    startReadyGo() // Use countdown for replay too
   }
 
   const selectConfession = (index: number) => {
     setCurrentConfessionIndex(index)
     setShowListView(false)
     // Start countdown when confession is selected
-    startCountdown()
+    startReadyGo()
   }
 
-  // Pause during countdown
-  const pauseCountdown = () => {
-    setCanPause(false)
-    setShowCountdown(false)
+  // Pause button just hides overlays and stops autoplay
+  const pauseReadyGo = () => {
+    setShowReadyGo("none")
     setIsAutoPlaying(false)
   }
 
@@ -462,20 +443,22 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
         </div>
       )}
 
-      {/* Ready/Go Countdown Overlay */}
-      {showCountdown && (
+      {/* Ready/Go Overlay */}
+      {showReadyGo !== "none" && (
         <div className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center">
           <div className="text-center">
             <div className="w-32 h-32 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mb-8 animate-pulse">
-              <span className="text-6xl font-bold">{countdownText === "Ready" ? "🎯" : "🚀"}</span>
+              <span className="text-6xl font-bold">{showReadyGo === "ready" ? "🎯" : "🚀"}</span>
             </div>
             <h2 className="text-6xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse">
-              {countdownText}
+              {showReadyGo === "ready" ? "Ready" : "Go"}
             </h2>
             <p className="text-blue-200/60 mb-8">
-              {countdownText === "Ready" ? "Preparing your spiritual journey..." : "Starting now..."}
+              {showReadyGo === "ready"
+                ? "Preparing your spiritual journey..."
+                : "Starting now..."}
             </p>
-            <Button onClick={pauseCountdown} className="bg-red-500/20 border border-red-500/30 hover:bg-red-500/30">
+            <Button onClick={pauseReadyGo} className="bg-red-500/20 border border-red-500/30 hover:bg-red-500/30">
               <Pause className="w-4 h-4 mr-2" />
               Wait, I'm not ready
             </Button>
@@ -659,7 +642,7 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
               size="icon"
               onClick={() => setIsAutoPlaying(!isAutoPlaying)}
               className="w-16 h-16 rounded-full bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30"
-              disabled={showEndScreen || showCountdown}
+              disabled={showEndScreen || showReadyGo !== "none"}
             >
               {isAutoPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
             </Button>
