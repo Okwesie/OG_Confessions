@@ -124,7 +124,7 @@ const HomePage = () => {
           </div>
 
           <p className="text-xl md:text-2xl text-blue-200/80 max-w-3xl mx-auto leading-relaxed">
-            Daily spiritual affirmations to strengthen your faith and guide your Christian journey.
+            Keep saying it, Don't stop talking it
           </p>
 
           <div className="flex items-center justify-center gap-8 mt-8 text-blue-300/60">
