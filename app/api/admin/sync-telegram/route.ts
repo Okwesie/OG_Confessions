@@ -37,7 +37,7 @@ export async function POST() {
 
     // Fetch latest messages from Telegram
     console.log("📥 Fetching messages from Telegram...")
-    const messages = await telegram.getChannelMessages(50) // Increased to 50 for better sync
+    const messages = await telegram.getChannelMessages(100) // Get more messages
     console.log(`📨 Fetched ${messages.length} messages from Telegram`)
 
     if (messages.length === 0) {
@@ -54,12 +54,11 @@ export async function POST() {
       })
     }
 
-    // Process messages
+    // Process messages - SAVE EVERYTHING FROM YOUR CHANNEL
     let processedCount = 0
     let savedCount = 0
     let duplicatesSkipped = 0
     let errorsCount = 0
-    let nonAffirmationsSkipped = 0
     const sampleAffirmations: any[] = []
 
     for (const message of messages) {
@@ -75,16 +74,17 @@ export async function POST() {
         // Process the message text
         const processed = processAffirmation(message.text)
 
-        // Only save if it appears to be an affirmation
-        if (!processed.is_affirmation) {
-          nonAffirmationsSkipped++
-          console.log(`⏭️ Skipping non-affirmation: ${message.text.substring(0, 50)}...`)
-          continue
-        }
+        console.log(`📝 Processing message ${message.message_id}:`, {
+          text_length: message.text.length,
+          category: processed.category,
+          is_affirmation: processed.is_affirmation,
+          first_50_chars: message.text.substring(0, 50) + "...",
+        })
 
+        // CHANGED: Save ALL messages from your channel (removed is_affirmation check)
         // Prepare affirmation record
         const affirmationRecord = {
-          text: processed.text,
+          text: processed.text, // FULL TEXT
           category: processed.category,
           source_platform: "telegram",
           source_message_id: message.message_id.toString(),
@@ -98,16 +98,17 @@ export async function POST() {
 
         if (saveResult.success) {
           savedCount++
-          console.log(`✅ Saved affirmation ${message.message_id}: ${processed.category}`)
+          console.log(`✅ Saved message ${message.message_id}: ${processed.category} (${message.text.length} chars)`)
 
           // Add to sample for response (first 3)
           if (sampleAffirmations.length < 3) {
             sampleAffirmations.push({
-              text: processed.text.substring(0, 100) + (processed.text.length > 100 ? "..." : ""),
+              text: processed.text.substring(0, 150) + (processed.text.length > 150 ? "..." : ""),
               category: processed.category,
               tags: processed.tags,
               bible_verse: processed.bible_verse,
               message_id: message.message_id,
+              full_length: processed.text.length,
             })
           }
         } else {
@@ -129,7 +130,6 @@ export async function POST() {
       messages_processed: processedCount,
       new_affirmations: savedCount,
       duplicates_skipped: duplicatesSkipped,
-      non_affirmations_skipped: nonAffirmationsSkipped,
       errors: errorsCount,
       last_sync: new Date().toISOString(),
       sample_affirmations: sampleAffirmations,
@@ -137,6 +137,7 @@ export async function POST() {
         username: botInfo.username,
         first_name: botInfo.first_name,
       },
+      note: "🎉 Now saving ALL content from your channel regardless of length or format!",
     }
 
     console.log("🎉 Telegram sync completed:", results)

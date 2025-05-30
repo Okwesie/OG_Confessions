@@ -53,6 +53,7 @@ export async function messageExists(sourceMessageId: string, sourcePlatform = "t
 
 /**
  * Save a new affirmation to the database
+ * UPDATED: Remove length restrictions and save everything
  */
 export async function saveAffirmation(
   affirmation: AffirmationRecord,
@@ -65,11 +66,12 @@ export async function saveAffirmation(
       return { success: false, error: "Message already exists" }
     }
 
+    // REMOVED: No length restrictions - save everything
     const { data, error } = await supabase
       .from("affirmations")
       .insert([
         {
-          text: affirmation.text,
+          text: affirmation.text, // FULL TEXT - no truncation
           category: affirmation.category,
           source_platform: affirmation.source_platform,
           source_message_id: affirmation.source_message_id,
@@ -90,6 +92,7 @@ export async function saveAffirmation(
       return { success: false, error: error.message }
     }
 
+    console.log(`✅ Successfully saved affirmation: ${affirmation.text.substring(0, 50)}...`)
     return { success: true, id: data.id }
   } catch (error) {
     console.error("Error in saveAffirmation:", error)
@@ -121,12 +124,13 @@ export async function getExistingMessageIds(sourcePlatform = "telegram"): Promis
 
 /**
  * Get affirmations by category
+ * UPDATED: Return complete text without truncation
  */
 export async function getAffirmationsByCategory(category: string): Promise<any[]> {
   try {
     const { data, error } = await supabase
       .from("affirmations")
-      .select("id, text, category, created_at")
+      .select("id, text, category, created_at, bible_verse, tags") // Include more fields
       .eq("category", category)
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -138,9 +142,11 @@ export async function getAffirmationsByCategory(category: string): Promise<any[]
 
     return data.map((item) => ({
       id: item.id,
-      text: item.text,
+      text: item.text, // COMPLETE TEXT
       category: item.category,
       timestamp: item.created_at,
+      bible_verse: item.bible_verse,
+      tags: item.tags || [],
     }))
   } catch (error) {
     console.error("Error getting affirmations by category:", error)
@@ -177,34 +183,26 @@ export async function updateAffirmationAnalytics(
   try {
     const field = eventType === "view" ? "view_count" : "favorite_count"
 
-    const { error } = await supabase.rpc("increment_counter", {
-      affirmation_id: affirmationId,
-      counter_field: field,
-    })
+    const { data: current, error: fetchError } = await supabase
+      .from("affirmations")
+      .select(field)
+      .eq("id", affirmationId)
+      .single()
 
-    if (error) {
-      // Fallback to manual increment if function doesn't exist
-      const { data: current, error: fetchError } = await supabase
-        .from("affirmations")
-        .select(field)
-        .eq("id", affirmationId)
-        .single()
+    if (fetchError) {
+      console.error("Error fetching current count:", fetchError)
+      return false
+    }
 
-      if (fetchError) {
-        console.error("Error fetching current count:", fetchError)
-        return false
-      }
+    const newCount = (current[field] || 0) + 1
+    const { error: updateError } = await supabase
+      .from("affirmations")
+      .update({ [field]: newCount })
+      .eq("id", affirmationId)
 
-      const newCount = (current[field] || 0) + 1
-      const { error: updateError } = await supabase
-        .from("affirmations")
-        .update({ [field]: newCount })
-        .eq("id", affirmationId)
-
-      if (updateError) {
-        console.error("Error updating analytics:", updateError)
-        return false
-      }
+    if (updateError) {
+      console.error("Error updating analytics:", updateError)
+      return false
     }
 
     return true

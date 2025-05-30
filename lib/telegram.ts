@@ -56,6 +56,7 @@ export class TelegramService {
 
   /**
    * Fetch the latest messages from the Telegram channel
+   * UPDATED: Get complete message content without truncation
    */
   async getChannelMessages(limit = 100): Promise<TelegramMessage[]> {
     try {
@@ -88,7 +89,7 @@ export class TelegramService {
         if (isFromTargetChannel) {
           messages.push({
             message_id: message.message_id,
-            text: message.text,
+            text: message.text, // FULL TEXT - no truncation
             date: message.date,
             from: message.from?.username || message.from?.first_name || "channel",
           })
@@ -104,39 +105,43 @@ export class TelegramService {
   }
 
   /**
-   * Alternative method: Get channel history directly (requires channel to be public or bot to be admin)
+   * Alternative method: Get channel history directly using getChat
    */
   async getChannelHistory(limit = 100): Promise<TelegramMessage[]> {
     try {
-      const url = `https://api.telegram.org/bot${this.botToken}/getChatHistory`
+      // Try to get more recent messages using a different approach
+      const url = `https://api.telegram.org/bot${this.botToken}/getUpdates?offset=-${limit}&limit=${limit}&allowed_updates=["channel_post"]`
 
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chat_id: this.channelId,
-          limit: limit,
-        }),
-      })
-
+      const response = await fetch(url)
       const data = await response.json()
 
       if (!data.ok) {
-        // Fallback to getUpdates if getChatHistory fails
-        console.log("getChatHistory failed, falling back to getUpdates")
+        console.log("getUpdates with offset failed, falling back to regular getUpdates")
         return this.getChannelMessages(limit)
       }
 
-      return data.result.map((msg: any) => ({
-        message_id: msg.message_id,
-        text: msg.text || "",
-        date: msg.date,
-        from: msg.from?.username || "channel",
-      }))
+      const messages: TelegramMessage[] = []
+
+      for (const update of data.result) {
+        const message = update.channel_post
+
+        if (!message || !message.text) continue
+
+        const isFromTargetChannel = this.isFromTargetChannel(message.chat)
+
+        if (isFromTargetChannel) {
+          messages.push({
+            message_id: message.message_id,
+            text: message.text, // COMPLETE TEXT
+            date: message.date,
+            from: "channel",
+          })
+        }
+      }
+
+      return messages.sort((a, b) => b.date - a.date)
     } catch (error) {
-      console.log("getChatHistory not available, using getUpdates")
+      console.log("Alternative method failed, using standard getChannelMessages")
       return this.getChannelMessages(limit)
     }
   }

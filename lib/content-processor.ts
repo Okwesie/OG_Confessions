@@ -9,19 +9,22 @@ export interface ProcessedAffirmation {
 }
 
 /**
- * Clean message text by removing emojis, extra whitespace, and formatting
+ * Clean message text by removing problematic characters and formatting
  */
 export function cleanText(text: string): string {
   if (!text) return ""
 
   return (
     text
-      // Remove emojis (basic Unicode ranges)
-      .replace(
-        /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu,
-        "",
-      )
-      // Remove extra whitespace and newlines
+      // Fix common encoding issues
+      .replace(/ð—/g, "")
+      .replace(/â€™/g, "'")
+      .replace(/â€œ/g, '"')
+      .replace(/â€/g, '"')
+      .replace(/â€¦/g, "...")
+      // Remove excessive hashtags and formatting
+      .replace(/#[A-Z\s]+/g, "")
+      // Clean up multiple spaces and newlines
       .replace(/\s+/g, " ")
       // Remove common Telegram formatting
       .replace(/\*\*(.*?)\*\*/g, "$1") // Bold
@@ -33,64 +36,29 @@ export function cleanText(text: string): string {
 }
 
 /**
- * Check if text appears to be an affirmation (motivational/inspirational)
+ * UPDATED: Much more permissive - accept almost all content from the channel
  */
 export function isAffirmationText(text: string): boolean {
-  if (!text || text.length < 10 || text.length > 500) return false
+  if (!text || text.length < 5) return false
 
   const lowerText = text.toLowerCase()
 
-  // Positive affirmation indicators
-  const affirmationKeywords = [
-    "i am",
-    "i can",
-    "i will",
-    "i have",
-    "i choose",
-    "my",
-    "today i",
-    "god",
-    "lord",
-    "blessed",
-    "strength",
-    "faith",
-    "believe",
-    "trust",
-    "grateful",
-    "thankful",
-    "wisdom",
-    "purpose",
-    "calling",
-    "destiny",
-    "hope",
-    "love",
-    "peace",
-    "joy",
-    "courage",
-    "power",
-  ]
-
-  // Check if text contains affirmation patterns
-  const hasAffirmationKeywords = affirmationKeywords.some((keyword) => lowerText.includes(keyword))
-
-  // Exclude obvious non-affirmations
+  // Exclude only obvious spam/non-content
   const excludePatterns = [
-    "http",
+    "http://",
+    "https://",
     "www.",
-    "@",
-    "#",
     "click here",
-    "subscribe",
-    "follow",
-    "like and share",
-    "good morning",
-    "good night",
-    "happy birthday",
+    "subscribe now",
+    "follow us",
+    "join our",
+    "download app",
   ]
 
   const hasExcludePatterns = excludePatterns.some((pattern) => lowerText.includes(pattern))
 
-  return hasAffirmationKeywords && !hasExcludePatterns
+  // If it's from your confession channel and not spam, it's probably valid content
+  return !hasExcludePatterns
 }
 
 /**
@@ -99,7 +67,7 @@ export function isAffirmationText(text: string): boolean {
 export function categorizeText(text: string): "Faith" | "Strength" | "Wisdom" | "Gratitude" | "Purpose" {
   const lowerText = text.toLowerCase()
 
-  // Category keywords with weights
+  // Enhanced category keywords
   const categories = {
     Faith: [
       "god",
@@ -123,6 +91,10 @@ export function categorizeText(text: string): "Faith" | "Strength" | "Wisdom" | 
       "spirit",
       "trust in god",
       "almighty",
+      "confess",
+      "confession",
+      "declare",
+      "affirm",
     ],
     Strength: [
       "strong",
@@ -143,6 +115,8 @@ export function categorizeText(text: string): "Faith" | "Strength" | "Wisdom" | 
       "victory",
       "triumph",
       "bold",
+      "empowered",
+      "unstoppable",
     ],
     Wisdom: [
       "wise",
@@ -162,6 +136,8 @@ export function categorizeText(text: string): "Faith" | "Strength" | "Wisdom" | 
       "thoughtful",
       "mindful",
       "aware",
+      "understanding",
+      "revelation",
     ],
     Gratitude: [
       "thank",
@@ -181,6 +157,8 @@ export function categorizeText(text: string): "Faith" | "Strength" | "Wisdom" | 
       "grace",
       "fortunate",
       "lucky",
+      "appreciate",
+      "glory",
     ],
     Purpose: [
       "destiny",
@@ -200,6 +178,12 @@ export function categorizeText(text: string): "Faith" | "Strength" | "Wisdom" | 
       "impact",
       "legacy",
       "potential",
+      "flourish",
+      "prosper",
+      "success",
+      "rich",
+      "wealth",
+      "financial",
     ],
   }
 
@@ -214,6 +198,16 @@ export function categorizeText(text: string): "Faith" | "Strength" | "Wisdom" | 
 
   // Find category with highest score
   const bestMatch = scores.reduce((best, current) => (current.score > best.score ? current : best))
+
+  // Special handling for financial confessions
+  if (
+    lowerText.includes("financial") ||
+    lowerText.includes("money") ||
+    lowerText.includes("rich") ||
+    lowerText.includes("wealth")
+  ) {
+    return "Purpose"
+  }
 
   // Default to Faith if no clear winner
   return (bestMatch.score > 0 ? bestMatch.category : "Faith") as
@@ -259,12 +253,24 @@ export function extractTags(text: string): string[] {
     "encouragement",
     "comfort",
     "healing",
+    "prosperity",
+    "wealth",
+    "financial",
+    "rich",
+    "abundance",
+    "victory",
+    "triumph",
+    "success",
+    "flourish",
+    "empowered",
+    "blessed",
+    "favor",
   ]
 
   const foundTags = tagKeywords.filter((tag) => lowerText.includes(tag))
 
-  // Limit to 5 most relevant tags
-  return foundTags.slice(0, 5)
+  // Limit to 8 most relevant tags (increased from 5)
+  return foundTags.slice(0, 8)
 }
 
 /**
@@ -297,10 +303,15 @@ export function extractBibleVerse(text: string): string | undefined {
 
 /**
  * Process raw text into a structured affirmation
+ * UPDATED: Much more permissive - saves almost everything from the channel
  */
 export function processAffirmation(text: string): ProcessedAffirmation {
   const cleanedText = cleanText(text)
+
+  // CHANGED: Always return true for affirmations from your channel
+  // We trust that content from your confession channel is valid
   const isAffirmation = isAffirmationText(cleanedText)
+
   const category = categorizeText(cleanedText)
   const tags = extractTags(cleanedText)
   const bibleVerse = extractBibleVerse(cleanedText)
@@ -310,6 +321,6 @@ export function processAffirmation(text: string): ProcessedAffirmation {
     category,
     tags,
     bible_verse: bibleVerse,
-    is_affirmation: isAffirmation,
+    is_affirmation: true, // FORCE TRUE - save everything from your channel
   }
 }
