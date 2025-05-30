@@ -1,30 +1,77 @@
-# Confession web app
+# 🙏 OG_Confessions - "Keep Saying it"
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+**OG_Confessions** is a web-based spiritual affirmation platform designed to deliver distraction-free, categorized confessions directly to users. It features smooth transitions, dynamic Telegram content integration, and a clean, responsive UI built with Next.js and V0.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/calebokwesiearthur-gmailcoms-projects/v0-confession-web-app)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/NI8SEcqKzIw)
+---
 
-## Overview
+## ✨ Features
+- 📂 **Dynamic Categories**: Pulled from synced Telegram content
+- 🎚️ **Playback Controls**: Adjust speed (0.5x to 2x)
+- 🌐 **Clean Interface**: Minimalist and intuitive, without clutter
+- 📲 **Share + Favorite**: Easy to share and bookmark affirmations
+- 🧑‍💼 **Admin Dashboard**: Manage categories and content via secure backend
+- 🤖 **Telegram Integration**: Pulls affirmations directly from a Telegram channel
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+---
 
-## Deployment
+## 🚀 Getting Started
 
-Your project is live at:
+### 1. Clone the Repo
+```bash
+git clone https://github.com/Okwesie/OG_Confessions.git
+cd OG_Confessions
 
-**[https://vercel.com/calebokwesiearthur-gmailcoms-projects/v0-confession-web-app](https://vercel.com/calebokwesiearthur-gmailcoms-projects/v0-confession-web-app)**
+2. Install Dependencies
 
-## Build your app
+npm install
 
-Continue building your app on:
+3. Set Environment Variables
 
-**[https://v0.dev/chat/projects/NI8SEcqKzIw](https://v0.dev/chat/projects/NI8SEcqKzIw)**
+Create a .env.local file with the following:
 
-## How It Works
+TELEGRAM_BOT_TOKEN=your_token_here
+TELEGRAM_CHANNEL_ID=your_channel_id_here
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+# Other optional vars can be left commented
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+4. Run the App
+
+npm run dev
+
+Visit http://localhost:3000 to view it locally.
+
+⸻
+
+🧠 How It Works
+	1.	User Flow:
+	•	Homepage shows categorized confessions
+	•	Click to select a category and affirmation
+	•	Experience a short “Ready → Go” countdown
+	•	Affirmation plays automatically
+	•	User can pause, change speed, or share
+	2.	Admin Flow:
+	•	Secure dashboard for managing content
+	•	Sync content manually from Telegram
+	•	Update or categorize confessions dynamically
+
+⸻
+
+🛠 Tech Stack
+	•	Frontend: Next.js (React), Tailwind CSS
+	•	Backend: API Routes, Telegram Bot API
+	•	State Management: React Hooks & local state
+	•	Deployment: Vercel
+
+⸻
+
+📫 Contributing / Feedback
+
+Pull requests and issue reports are welcome! For feature ideas or bugs, open an issue or contact via Telegram (if admin).
+
+⸻
+
+🧘🏾‍♂️ Mission
+
+OG_Confessions is designed to uplift spirits and create a peaceful space for spiritual growth — one affirmation at a time.
+
+⸻
