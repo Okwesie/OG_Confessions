@@ -1,4 +1,5 @@
-// Environment variable validation and type safety
+// Comment out unnecessary environment variables for now
+// We'll keep the core functionality working and add these back in future integrations
 
 export const env = {
   // Database
@@ -10,26 +11,27 @@ export const env = {
   // Telegram
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID,
-  TELEGRAM_API_ID: process.env.TELEGRAM_API_ID,
-  TELEGRAM_API_HASH: process.env.TELEGRAM_API_HASH,
-  TELEGRAM_PHONE_NUMBER: process.env.TELEGRAM_PHONE_NUMBER,
+  // Commented out for now - will add in future integrations
+  // TELEGRAM_API_ID: process.env.TELEGRAM_API_ID,
+  // TELEGRAM_API_HASH: process.env.TELEGRAM_API_HASH,
+  // TELEGRAM_PHONE_NUMBER: process.env.TELEGRAM_PHONE_NUMBER,
 
   // Admin
   ADMIN_SECRET_KEY: process.env.ADMIN_SECRET_KEY || "admin123",
 
-  // AI
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  // AI - Commented out for now
+  // OPENAI_API_KEY: process.env.OPENAI_API_KEY,
 
-  // Auth
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
-  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  // Auth - Commented out for now
+  // NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+  // NEXTAUTH_URL: process.env.NEXTAUTH_URL,
 
-  // Analytics
-  SENTRY_DSN: process.env.SENTRY_DSN,
+  // Analytics - Commented out for now
+  // SENTRY_DSN: process.env.SENTRY_DSN,
 
-  // Redis
-  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
-  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+  // Redis - Commented out for now
+  // UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+  // UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
 
   // Environment
   NODE_ENV: process.env.NODE_ENV || "development",

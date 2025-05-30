@@ -176,28 +176,32 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
   }
 
   // NEW: Ready/Go countdown function
-  const startCountdown = async () => {
+  const startCountdown = () => {
     setShowCountdown(true)
     setCanPause(true)
 
-    // Show "Ready" - FASTER: 1 second instead of 1.5
+    // Show "Ready" for 1 second
     setCountdownText("Ready")
-    await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    // Check if user paused during countdown
-    if (!canPause) return
+    // Use setTimeout instead of async/await for more reliable UI updates
+    setTimeout(() => {
+      // Check if user paused during countdown
+      if (!canPause) return
 
-    // Show "Go" - FASTER: 0.5 seconds instead of 1 second
-    setCountdownText("Go")
-    await new Promise((resolve) => setTimeout(resolve, 500))
+      // Show "Go" for 0.5 seconds
+      setCountdownText("Go")
 
-    // Check if user paused during countdown
-    if (!canPause) return
+      // After 0.5 seconds, start playing
+      setTimeout(() => {
+        // Check if user paused during countdown
+        if (!canPause) return
 
-    // Start playing immediately
-    setShowCountdown(false)
-    setIsAutoPlaying(true)
-    trackEvent("view")
+        // Start playing immediately
+        setShowCountdown(false)
+        setIsAutoPlaying(true)
+        trackEvent("view")
+      }, 500)
+    }, 1000)
   }
 
   // Auto-play functionality with speed control
