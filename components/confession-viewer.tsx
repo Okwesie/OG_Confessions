@@ -3,7 +3,6 @@
 import { Card } from "@/components/ui/card"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -18,16 +17,14 @@ import {
   Pause,
   SkipForward,
   SkipBack,
-  Settings,
+  Gauge,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-type Category = "Faith" | "Strength" | "Wisdom" | "Gratitude" | "Purpose"
 
 interface Confession {
   id: string
   text: string
-  category: Category
+  category: string
   timestamp: string
   bible_verse?: string
   tags?: string[]
@@ -40,22 +37,37 @@ interface ConfessionSection {
   estimatedReadTime: number // in seconds
 }
 
-const categoryColors = {
+const categoryColors: Record<string, string> = {
   Faith: "bg-blue-500/20 text-blue-300 border-blue-500/30",
   Strength: "bg-purple-500/20 text-purple-300 border-purple-500/30",
   Wisdom: "bg-amber-500/20 text-amber-300 border-amber-500/30",
   Gratitude: "bg-green-500/20 text-green-300 border-green-500/30",
   Purpose: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+  Hope: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  Love: "bg-red-500/20 text-red-300 border-red-500/30",
+  Peace: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+  Joy: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  Healing: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  Prosperity: "bg-violet-500/20 text-violet-300 border-violet-500/30",
+  Protection: "bg-slate-500/20 text-slate-300 border-slate-500/30",
+  Guidance: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+  Forgiveness: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+  Victory: "bg-orange-500/20 text-orange-300 border-orange-500/30",
 }
 
-const readingSpeeds = {
-  slow: { label: "Slow", wordsPerSecond: 1.5, description: "Meditative pace" },
-  normal: { label: "Normal", wordsPerSecond: 2.5, description: "Comfortable reading" },
-  fast: { label: "Fast", wordsPerSecond: 4, description: "Quick review" },
+const playbackSpeeds = {
+  "0.5": { label: "0.5x", multiplier: 0.5, description: "Very slow" },
+  "0.75": { label: "0.75x", multiplier: 0.75, description: "Slow" },
+  "1": { label: "1x", multiplier: 1, description: "Normal" },
+  "1.25": { label: "1.25x", multiplier: 1.25, description: "Slightly fast" },
+  "1.5": { label: "1.5x", multiplier: 1.5, description: "Fast" },
+  "2": { label: "2x", multiplier: 2, description: "Very fast" },
 }
+
+const baseWordsPerSecond = 2.5 // Base reading speed
 
 interface ConfessionViewerProps {
-  category: Category
+  category: string
   onBack: () => void
 }
 
@@ -66,11 +78,16 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
   const [readingProgress, setReadingProgress] = useState(0)
   const [confessionSections, setConfessionSections] = useState<ConfessionSection[]>([])
   const [isAutoPlaying, setIsAutoPlaying] = useState(false)
-  const [readingSpeed, setReadingSpeed] = useState<keyof typeof readingSpeeds>("normal")
+  const [playbackSpeed, setPlaybackSpeed] = useState<keyof typeof playbackSpeeds>("1")
   const [showEndScreen, setShowEndScreen] = useState(false)
-  const [showListView, setShowListView] = useState(true) // Start with list view
+  const [showListView, setShowListView] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(true)
+
+  // NEW: Ready/Go countdown states
+  const [showCountdown, setShowCountdown] = useState(false)
+  const [countdownText, setCountdownText] = useState("")
+  const [canPause, setCanPause] = useState(false)
 
   // Load confessions from API
   useEffect(() => {
@@ -102,14 +119,13 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
     const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0)
     const sections: ConfessionSection[] = []
 
-    // Group sentences into sections (max 2-3 sentences per section for long confessions)
     const maxSentencesPerSection = text.length > 300 ? 2 : text.length > 150 ? 3 : 5
 
     for (let i = 0; i < sentences.length; i += maxSentencesPerSection) {
       const sectionSentences = sentences.slice(i, i + maxSentencesPerSection)
       const sectionText = sectionSentences.join(". ").trim() + "."
       const words = sectionText.split(" ")
-      const estimatedReadTime = words.length / readingSpeeds[readingSpeed].wordsPerSecond
+      const estimatedReadTime = words.length / (baseWordsPerSecond * playbackSpeeds[playbackSpeed].multiplier)
 
       sections.push({
         text: sectionText,
@@ -124,12 +140,12 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
           {
             text: text,
             words: text.split(" "),
-            estimatedReadTime: text.split(" ").length / readingSpeeds[readingSpeed].wordsPerSecond,
+            estimatedReadTime: text.split(" ").length / (baseWordsPerSecond * playbackSpeeds[playbackSpeed].multiplier),
           },
         ]
   }
 
-  // Update sections when confession or reading speed changes
+  // Update sections when confession or speed changes
   useEffect(() => {
     if (confessions[currentConfessionIndex]) {
       const sections = breakIntoSections(confessions[currentConfessionIndex].text)
@@ -138,7 +154,7 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
       setReadingProgress(0)
       setShowEndScreen(false)
     }
-  }, [currentConfessionIndex, confessions, readingSpeed])
+  }, [currentConfessionIndex, confessions, playbackSpeed])
 
   // Track analytics
   const trackEvent = async (eventType: string) => {
@@ -159,14 +175,39 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
     }
   }
 
-  // Auto-play functionality
+  // NEW: Ready/Go countdown function
+  const startCountdown = async () => {
+    setShowCountdown(true)
+    setCanPause(true)
+
+    // Show "Ready" - FASTER: 1 second instead of 1.5
+    setCountdownText("Ready")
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    // Check if user paused during countdown
+    if (!canPause) return
+
+    // Show "Go" - FASTER: 0.5 seconds instead of 1 second
+    setCountdownText("Go")
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // Check if user paused during countdown
+    if (!canPause) return
+
+    // Start playing immediately
+    setShowCountdown(false)
+    setIsAutoPlaying(true)
+    trackEvent("view")
+  }
+
+  // Auto-play functionality with speed control
   useEffect(() => {
-    if (!isAutoPlaying || !confessionSections[currentSection]) return
+    if (!isAutoPlaying || !confessionSections[currentSection] || showCountdown) return
 
     const currentSectionData = confessionSections[currentSection]
-    const speed = readingSpeeds[readingSpeed].wordsPerSecond
+    const speed = baseWordsPerSecond * playbackSpeeds[playbackSpeed].multiplier
     const totalWords = currentSectionData.words.length
-    const intervalTime = 100 // Update every 100ms for smooth progress
+    const intervalTime = 100
 
     const interval = setInterval(() => {
       setReadingProgress((prev) => {
@@ -174,17 +215,25 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
         const newProgress = prev + increment
 
         if (newProgress >= 100) {
-          setIsAutoPlaying(false)
-          setShowEndScreen(true)
-          trackEvent("complete")
-          return 100
+          if (currentSection < confessionSections.length - 1) {
+            console.log(`✅ Section ${currentSection + 1} complete, auto-advancing to section ${currentSection + 2}`)
+            setCurrentSection(currentSection + 1)
+            setReadingProgress(0)
+            return 0
+          } else {
+            console.log(`🎉 All sections complete for confession!`)
+            setIsAutoPlaying(false)
+            setShowEndScreen(true)
+            trackEvent("complete")
+            return 100
+          }
         }
         return newProgress
       })
     }, intervalTime)
 
     return () => clearInterval(interval)
-  }, [isAutoPlaying, currentSection, confessionSections, readingSpeed])
+  }, [isAutoPlaying, currentSection, confessionSections, playbackSpeed, showCountdown])
 
   const currentConfession = confessions[currentConfessionIndex]
   const currentSectionData = confessionSections[currentSection]
@@ -236,16 +285,24 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
   }
 
   const replaySection = () => {
+    setCurrentSection(0)
     setReadingProgress(0)
-    setIsAutoPlaying(true)
     setShowEndScreen(false)
-    trackEvent("replay")
+    startCountdown() // Use countdown for replay too
   }
 
   const selectConfession = (index: number) => {
     setCurrentConfessionIndex(index)
     setShowListView(false)
-    trackEvent("view")
+    // Start countdown when confession is selected
+    startCountdown()
+  }
+
+  // Pause during countdown
+  const pauseCountdown = () => {
+    setCanPause(false)
+    setShowCountdown(false)
+    setIsAutoPlaying(false)
   }
 
   if (loading) {
@@ -267,41 +324,30 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
             <span className="text-2xl font-bold">OG</span>
           </div>
           <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-            No {category} Affirmations Found
+            No {category} Affirmations
           </h2>
           <p className="text-blue-200/60 mb-6">
-            We haven't synced any {category.toLowerCase()} affirmations yet. Try syncing from Telegram first.
+            There are no {category.toLowerCase()} affirmations available at the moment. Check back later for new
+            content.
           </p>
-          <div className="space-y-3">
-            <Button onClick={onBack} className="w-full bg-blue-500 hover:bg-blue-600">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Return to Categories
-            </Button>
-            <Button
-              onClick={() => window.open("/admin", "_blank")}
-              variant="outline"
-              className="w-full border-blue-500/30 text-blue-300 hover:bg-blue-500/20"
-            >
-              Open Admin Dashboard
-            </Button>
-          </div>
+          <Button onClick={onBack} className="w-full bg-blue-500 hover:bg-blue-600">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Return to Categories
+          </Button>
         </div>
       </div>
     )
   }
 
-  // List View - Show all confessions in category
+  // List View
   if (showListView) {
     return (
       <div className="min-h-screen bg-black text-white relative overflow-hidden">
-        {/* Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-black to-purple-800/10">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]" />
         </div>
 
-        {/* Content */}
         <div className="relative z-10 flex flex-col h-screen">
-          {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-blue-500/20">
             <div className="flex items-center gap-3">
               <Button
@@ -319,10 +365,11 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
                 {category} Affirmations
               </h1>
             </div>
-            <Badge className={cn("border", categoryColors[category])}>{confessions.length} Available</Badge>
+            <Badge className={cn("border", categoryColors[category] || categoryColors.Faith)}>
+              {confessions.length} Available
+            </Badge>
           </div>
 
-          {/* List of confessions */}
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-4xl mx-auto space-y-4">
               {confessions.map((confession, index) => {
@@ -336,8 +383,8 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
                     key={confession.id}
                     className={cn(
                       "p-6 border-2 bg-black/40 backdrop-blur-sm cursor-pointer transition-all hover:scale-[1.01]",
-                      categoryColors[confession.category].split(" ")[0],
-                      categoryColors[confession.category].split(" ")[2],
+                      categoryColors[confession.category]?.split(" ")[0] || "bg-blue-500/20",
+                      categoryColors[confession.category]?.split(" ")[2] || "border-blue-500/30",
                     )}
                     onClick={() => selectConfession(index)}
                   >
@@ -345,7 +392,7 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
                       <div
                         className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center text-white font-bold",
-                          categoryColors[confession.category].split(" ")[0],
+                          categoryColors[confession.category]?.split(" ")[0] || "bg-blue-500/20",
                         )}
                       >
                         {index + 1}
@@ -380,7 +427,6 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
   // Reading View
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-black to-purple-800/10">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent_50%)]" />
       </div>
@@ -388,19 +434,19 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
       {/* Settings Panel */}
       {showSettings && (
         <div className="absolute top-20 right-6 z-30 bg-black/90 border border-blue-500/30 rounded-lg p-4 backdrop-blur-sm">
-          <h3 className="text-lg font-semibold mb-3 text-blue-400">Reading Settings</h3>
+          <h3 className="text-lg font-semibold mb-3 text-blue-400">Playback Settings</h3>
           <div className="space-y-3">
             <div>
-              <label className="text-sm text-blue-200 block mb-1">Reading Speed</label>
+              <label className="text-sm text-blue-200 block mb-1">Playback Speed</label>
               <Select
-                value={readingSpeed}
-                onValueChange={(value: keyof typeof readingSpeeds) => setReadingSpeed(value)}
+                value={playbackSpeed}
+                onValueChange={(value: keyof typeof playbackSpeeds) => setPlaybackSpeed(value)}
               >
                 <SelectTrigger className="bg-white/10 border-white/20 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(readingSpeeds).map(([key, speed]) => (
+                  {Object.entries(playbackSpeeds).map(([key, speed]) => (
                     <SelectItem key={key} value={key}>
                       {speed.label} - {speed.description}
                     </SelectItem>
@@ -412,7 +458,27 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
         </div>
       )}
 
-      {/* Content */}
+      {/* Ready/Go Countdown Overlay */}
+      {showCountdown && (
+        <div className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-32 h-32 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mb-8 animate-pulse">
+              <span className="text-6xl font-bold">{countdownText === "Ready" ? "🎯" : "🚀"}</span>
+            </div>
+            <h2 className="text-6xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse">
+              {countdownText}
+            </h2>
+            <p className="text-blue-200/60 mb-8">
+              {countdownText === "Ready" ? "Preparing your spiritual journey..." : "Starting now..."}
+            </p>
+            <Button onClick={pauseCountdown} className="bg-red-500/20 border border-red-500/30 hover:bg-red-500/30">
+              <Pause className="w-4 h-4 mr-2" />
+              Wait, I'm not ready
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="relative z-10 flex flex-col h-screen">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-blue-500/20">
@@ -433,7 +499,8 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
                 {category} #{currentConfessionIndex + 1}
               </h1>
               <p className="text-xs text-blue-300/60">
-                Section {currentSection + 1} of {confessionSections.length}
+                Section {currentSection + 1} of {confessionSections.length} • {playbackSpeeds[playbackSpeed].label}{" "}
+                speed
               </p>
             </div>
           </div>
@@ -444,9 +511,9 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
               onClick={() => setShowSettings(!showSettings)}
               className="w-10 h-10 rounded-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30"
             >
-              <Settings className="w-5 h-5" />
+              <Gauge className="w-5 h-5" />
             </Button>
-            <Badge className={cn("border", categoryColors[currentConfession.category])}>
+            <Badge className={cn("border", categoryColors[currentConfession.category] || categoryColors.Faith)}>
               {currentConfession.category}
             </Badge>
           </div>
@@ -505,8 +572,12 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
               </div>
 
               <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                Section Complete
+                Confession Complete
               </h2>
+
+              <p className="text-blue-200/60">
+                You've completed all {confessionSections.length} sections of this {category.toLowerCase()} affirmation.
+              </p>
 
               <div className="grid grid-cols-1 gap-4 pt-4">
                 <Button
@@ -514,16 +585,16 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
                   className="bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30 h-16 text-lg"
                 >
                   <RefreshCw className="w-5 h-5 mr-2" />
-                  Replay Section
+                  Replay This Confession
                 </Button>
 
-                {currentSection < confessionSections.length - 1 && (
+                {currentConfessionIndex < confessions.length - 1 && (
                   <Button
-                    onClick={() => navigateSection("next")}
+                    onClick={() => navigateConfession("next")}
                     className="bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 h-16 text-lg"
                   >
-                    <ChevronDown className="w-5 h-5 mr-2" />
-                    Next Section
+                    <SkipForward className="w-5 h-5 mr-2" />
+                    Next {category} Confession
                   </Button>
                 )}
 
@@ -563,19 +634,7 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
         </div>
 
         {/* Controls */}
-        <div className="p-6 space-y-4 border-t border-blue-500/20">
-          {/* Progress bar */}
-          <div className="space-y-2">
-            <Progress value={readingProgress} className="h-2 bg-blue-900/30" />
-            <div className="flex justify-between text-sm text-blue-300">
-              <span>{Math.floor(readingProgress)}%</span>
-              <span>
-                Section {currentSection + 1} / {confessionSections.length}
-              </span>
-            </div>
-          </div>
-
-          {/* Action buttons */}
+        <div className="p-6 border-t border-blue-500/20">
           <div className="flex items-center justify-center gap-6">
             <Button
               variant="ghost"
@@ -596,7 +655,7 @@ export default function ConfessionViewer({ category, onBack }: ConfessionViewerP
               size="icon"
               onClick={() => setIsAutoPlaying(!isAutoPlaying)}
               className="w-16 h-16 rounded-full bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30"
-              disabled={showEndScreen}
+              disabled={showEndScreen || showCountdown}
             >
               {isAutoPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
             </Button>

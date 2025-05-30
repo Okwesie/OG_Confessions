@@ -2,76 +2,91 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowRight, Heart, TrendingUp, Users, Briefcase, BookOpen } from "lucide-react"
+import { ArrowRight, Heart, TrendingUp, Users, Briefcase, BookOpen, Star, Sun, Shield, Compass } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ConfessionViewer from "@/components/confession-viewer"
 
-type Category = "Faith" | "Strength" | "Wisdom" | "Gratitude" | "Purpose"
-
 interface CategoryInfo {
-  name: Category
+  name: string
   icon: React.ReactNode
   description: string
   count: number
   gradient: string
   borderColor: string
   preview: string
+  last_updated: string
 }
 
-const categories: CategoryInfo[] = [
-  {
-    name: "Faith",
-    icon: <Heart className="w-8 h-8" />,
-    description: "Affirmations to strengthen your faith and spiritual journey",
-    count: 127,
-    gradient: "from-blue-500/20 to-indigo-600/20",
-    borderColor: "border-blue-500/30 hover:border-blue-400/50",
-    preview: "My faith is my anchor in the storms of life...",
-  },
-  {
-    name: "Strength",
-    icon: <TrendingUp className="w-8 h-8" />,
-    description: "Affirmations for courage and spiritual strength",
-    count: 89,
-    gradient: "from-purple-500/20 to-violet-600/20",
-    borderColor: "border-purple-500/30 hover:border-purple-400/50",
-    preview: "I am strong because God is my strength...",
-  },
-  {
-    name: "Wisdom",
-    icon: <BookOpen className="w-8 h-8" />,
-    description: "Biblical wisdom and guidance for daily living",
-    count: 156,
-    gradient: "from-amber-500/20 to-yellow-600/20",
-    borderColor: "border-amber-500/30 hover:border-amber-400/50",
-    preview: "The wisdom of God guides my every decision...",
-  },
-  {
-    name: "Gratitude",
-    icon: <Users className="w-8 h-8" />,
-    description: "Expressions of thankfulness and praise",
-    count: 203,
-    gradient: "from-green-500/20 to-emerald-600/20",
-    borderColor: "border-green-500/30 hover:border-green-400/50",
-    preview: "I am grateful for God's endless blessings in my life...",
-  },
-  {
-    name: "Purpose",
-    icon: <Briefcase className="w-8 h-8" />,
-    description: "Discovering and living your God-given purpose",
-    count: 94,
-    gradient: "from-pink-500/20 to-rose-600/20",
-    borderColor: "border-pink-500/30 hover:border-pink-400/50",
-    preview: "I was created with divine purpose and meaning...",
-  },
-]
+const iconMap: Record<string, React.ReactNode> = {
+  Heart: <Heart className="w-8 h-8" />,
+  TrendingUp: <TrendingUp className="w-8 h-8" />,
+  BookOpen: <BookOpen className="w-8 h-8" />,
+  Users: <Users className="w-8 h-8" />,
+  Briefcase: <Briefcase className="w-8 h-8" />,
+  Star: <Star className="w-8 h-8" />,
+  Sun: <Sun className="w-8 h-8" />,
+  Shield: <Shield className="w-8 h-8" />,
+  Compass: <Compass className="w-8 h-8" />,
+}
 
-export default function HomePage() {
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+const HomePage = () => {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [categories, setCategories] = useState<CategoryInfo[]>([])
+  const [stats, setStats] = useState({
+    totalAffirmations: 0,
+    totalCategories: 0,
+    isDaily: "Daily",
+  })
+  const [loading, setLoading] = useState(true)
+
+  // Load dynamic categories and statistics
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+
+        // Fetch dynamic categories
+        const categoriesResponse = await fetch("/api/categories")
+        const categoriesData = await categoriesResponse.json()
+
+        if (categoriesData.success && categoriesData.categories) {
+          const formattedCategories = categoriesData.categories.map((cat: any) => ({
+            name: cat.name,
+            icon: iconMap[cat.icon] || <Heart className="w-8 h-8" />,
+            description: cat.description,
+            count: cat.count,
+            gradient: cat.gradient,
+            borderColor: cat.borderColor,
+            preview: cat.preview,
+            last_updated: cat.last_updated,
+          }))
+
+          setCategories(formattedCategories)
+          setStats({
+            totalAffirmations: categoriesData.total_affirmations,
+            totalCategories: categoriesData.total_categories,
+            isDaily: "Daily",
+          })
+
+          console.log(`✅ Loaded ${formattedCategories.length} dynamic categories`)
+        } else {
+          console.warn("No categories found:", categoriesData)
+          setCategories([])
+        }
+      } catch (error) {
+        console.error("Failed to load categories:", error)
+        setCategories([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
 
   if (selectedCategory) {
     return <ConfessionViewer category={selectedCategory} onBack={() => setSelectedCategory(null)} />
@@ -114,17 +129,17 @@ export default function HomePage() {
 
           <div className="flex items-center justify-center gap-8 mt-8 text-blue-300/60">
             <div className="text-center">
-              <div className="text-2xl font-bold text-white">669</div>
+              <div className="text-2xl font-bold text-white">{stats.totalAffirmations}</div>
               <div className="text-sm">Total Affirmations</div>
             </div>
             <div className="w-px h-12 bg-blue-500/30" />
             <div className="text-center">
-              <div className="text-2xl font-bold text-white">5</div>
+              <div className="text-2xl font-bold text-white">{stats.totalCategories}</div>
               <div className="text-sm">Categories</div>
             </div>
             <div className="w-px h-12 bg-blue-500/30" />
             <div className="text-center">
-              <div className="text-2xl font-bold text-white">Daily</div>
+              <div className="text-2xl font-bold text-white">{stats.isDaily}</div>
               <div className="text-sm">Updates</div>
             </div>
           </div>
@@ -132,64 +147,94 @@ export default function HomePage() {
 
         {/* Categories Grid */}
         <div className="max-w-7xl mx-auto px-6 pb-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category, index) => (
-              <Card
-                key={category.name}
-                className={cn(
-                  "group relative overflow-hidden border-2 bg-gradient-to-br cursor-pointer transition-all duration-500 hover:scale-105 hover:shadow-2xl",
-                  category.gradient,
-                  category.borderColor,
-                  "bg-black/40 backdrop-blur-sm",
-                )}
-                onClick={() => setSelectedCategory(category.name)}
-                style={{
-                  animationDelay: `${index * 100}ms`,
-                  animation: "fadeInUp 0.6s ease-out forwards",
-                }}
-              >
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                <span className="text-2xl font-bold">OG</span>
+              </div>
+              <p className="text-blue-200/60">Loading categories...</p>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mb-6">
+                <span className="text-2xl font-bold">OG</span>
+              </div>
+              <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                No Categories Available
+              </h2>
+              <p className="text-blue-200/60 mb-6">
+                No affirmations have been synced yet. Categories will appear automatically when content is added.
+              </p>
+              <Button onClick={() => window.open("/admin", "_blank")} className="bg-blue-500 hover:bg-blue-600">
+                Open Admin Dashboard
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {categories.map((category, index) => (
+                <Card
+                  key={category.name}
+                  className={cn(
+                    "group relative overflow-hidden border-2 bg-gradient-to-br cursor-pointer transition-all duration-500 hover:scale-105 hover:shadow-2xl",
+                    category.gradient,
+                    category.borderColor,
+                    "bg-black/40 backdrop-blur-sm",
+                  )}
+                  onClick={() => setSelectedCategory(category.name)}
+                  style={{
+                    animationDelay: `${index * 100}ms`,
+                    animation: "fadeInUp 0.6s ease-out forwards",
+                  }}
+                >
+                  {/* Glow effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
 
-                <div className="p-8 relative z-10">
-                  {/* Icon and badge */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20">
-                      {category.icon}
+                  <div className="p-8 relative z-10">
+                    {/* Icon and badge */}
+                    <div className="flex items-start justify-between mb-6">
+                      <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20">
+                        {category.icon}
+                      </div>
+                      <Badge className="bg-white/10 text-white border-white/20 backdrop-blur-sm">
+                        {category.count}
+                      </Badge>
                     </div>
-                    <Badge className="bg-white/10 text-white border-white/20 backdrop-blur-sm">{category.count}</Badge>
-                  </div>
 
-                  {/* Content */}
-                  <div className="space-y-4">
-                    <h3 className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors">
-                      {category.name}
-                    </h3>
+                    {/* Content */}
+                    <div className="space-y-4">
+                      <h3 className="text-2xl font-bold text-white group-hover:text-blue-200 transition-colors">
+                        {category.name}
+                      </h3>
 
-                    <p className="text-blue-200/70 leading-relaxed">{category.description}</p>
+                      <p className="text-blue-200/70 leading-relaxed">{category.description}</p>
 
-                    {/* Preview */}
-                    <div className="p-4 rounded-xl bg-black/30 border border-white/10 backdrop-blur-sm">
-                      <p className="text-sm text-blue-100/80 italic line-clamp-2">"{category.preview}"</p>
+                      {/* Preview */}
+                      <div className="p-4 rounded-xl bg-black/30 border border-white/10 backdrop-blur-sm">
+                        <p className="text-sm text-blue-100/80 italic line-clamp-2">"{category.preview}"</p>
+                      </div>
+                    </div>
+
+                    {/* Action */}
+                    <div className="flex items-center justify-between mt-8">
+                      <span className="text-blue-300/60 text-sm">
+                        {category.last_updated
+                          ? `Updated ${new Date(category.last_updated).toLocaleDateString()}`
+                          : "Latest updates daily"}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="group-hover:bg-white/10 group-hover:text-white transition-all"
+                      >
+                        Explore
+                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </Button>
                     </div>
                   </div>
-
-                  {/* Action */}
-                  <div className="flex items-center justify-between mt-8">
-                    <span className="text-blue-300/60 text-sm">Latest updates daily</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="group-hover:bg-white/10 group-hover:text-white transition-all"
-                    >
-                      Explore
-                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -202,7 +247,7 @@ export default function HomePage() {
             <div className="flex items-center justify-center gap-4 text-sm text-blue-400/50">
               <span>Powered by CEYC Daily Affirmations</span>
               <div className="w-1 h-1 bg-blue-500 rounded-full" />
-              <span>Updated every 24 hours</span>
+              <span>Categories update automatically</span>
             </div>
           </div>
         </div>
@@ -223,3 +268,5 @@ export default function HomePage() {
     </div>
   )
 }
+
+export default HomePage
