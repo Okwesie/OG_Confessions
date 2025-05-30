@@ -1,58 +1,28 @@
 import { NextResponse } from "next/server"
-
-// Mock database - replace with actual database integration
-const mockAffirmations = [
-  {
-    id: "1",
-    text: "My faith is my anchor in the storms of life. I will trust in the Lord with all my heart and lean not on my own understanding. In all my ways I acknowledge Him, and He shall direct my paths.",
-    category: "Faith",
-    source_platform: "telegram",
-    source_message_id: "msg_001",
-    created_at: "2024-01-15T10:30:00Z",
-    updated_at: "2024-01-15T10:30:00Z",
-    is_active: true,
-    bible_verse: "Proverbs 3:5-6",
-    tags: ["faith", "trust", "guidance"],
-    view_count: 156,
-    favorite_count: 23,
-  },
-  {
-    id: "2",
-    text: "I can do all things through Christ who strengthens me. When I am weak, then I am strong, for His power is made perfect in my weakness.",
-    category: "Strength",
-    source_platform: "telegram",
-    source_message_id: "msg_002",
-    created_at: "2024-01-14T15:45:00Z",
-    updated_at: "2024-01-14T15:45:00Z",
-    is_active: true,
-    bible_verse: "Philippians 4:13",
-    tags: ["strength", "power", "christ"],
-    view_count: 234,
-    favorite_count: 45,
-  },
-  {
-    id: "3",
-    text: "The wisdom that comes from heaven is first of all pure; then peace-loving, considerate, submissive, full of mercy and good fruit.",
-    category: "Wisdom",
-    source_platform: "manual",
-    created_at: "2024-01-13T09:20:00Z",
-    updated_at: "2024-01-13T09:20:00Z",
-    is_active: true,
-    bible_verse: "James 3:17",
-    tags: ["wisdom", "heaven", "peace"],
-    view_count: 89,
-    favorite_count: 12,
-  },
-]
+import { getAllAffirmations, saveAffirmation } from "@/lib/database"
 
 export async function GET() {
   try {
+    console.log("Fetching affirmations from database...")
+
+    const affirmations = await getAllAffirmations()
+
+    console.log(`✅ Successfully fetched ${affirmations.length} affirmations`)
+
     return NextResponse.json({
-      affirmations: mockAffirmations,
+      affirmations,
       success: true,
+      database_type: "supabase",
     })
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch affirmations" }, { status: 500 })
+    console.error("❌ Failed to fetch affirmations:", error)
+    return NextResponse.json(
+      {
+        error: "Failed to fetch affirmations",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
@@ -60,23 +30,28 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
 
-    const newAffirmation = {
-      id: Date.now().toString(),
-      ...data,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      view_count: 0,
-      favorite_count: 0,
-      source_platform: data.source_platform || "manual",
+    const affirmationRecord = {
+      text: data.text,
+      category: data.category,
+      source_platform: "manual",
+      source_message_id: `manual_${Date.now()}`,
+      tags: data.tags || [],
+      bible_verse: data.bible_verse,
+      is_active: data.is_active !== undefined ? data.is_active : true,
     }
 
-    mockAffirmations.unshift(newAffirmation)
+    const result = await saveAffirmation(affirmationRecord)
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 400 })
+    }
 
     return NextResponse.json({
-      affirmation: newAffirmation,
+      affirmation: { id: result.id, ...affirmationRecord },
       success: true,
     })
   } catch (error) {
+    console.error("Failed to create affirmation:", error)
     return NextResponse.json({ error: "Failed to create affirmation" }, { status: 500 })
   }
 }

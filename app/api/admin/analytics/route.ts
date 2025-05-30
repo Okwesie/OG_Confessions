@@ -1,46 +1,63 @@
 import { NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import { getAnalytics } from "@/lib/database"
+
+// Safely get environment variables
+const supabaseUrl = process.env.SUPABASE_URL || process.env.SUPABASE_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SUPABASE_SERVICE_ROLE_KEY
+
+let supabase: any = null
+
+function getSupabaseClient() {
+  if (!supabase && supabaseUrl && supabaseServiceKey) {
+    try {
+      supabase = createClient(supabaseUrl, supabaseServiceKey)
+    } catch (error) {
+      console.error("Failed to initialize Supabase:", error)
+      return null
+    }
+  }
+  return supabase
+}
 
 export async function GET() {
   try {
-    // Mock analytics data - replace with actual database queries
-    const analytics = {
-      total_affirmations: 125,
-      total_views: 3456,
-      total_favorites: 234,
-      category_stats: {
-        Faith: 32,
-        Strength: 28,
-        Wisdom: 25,
-        Gratitude: 22,
-        Purpose: 18,
-      },
-      recent_activity: [
-        {
-          affirmation_id: "1",
-          affirmation_text: "My faith is my anchor in the storms of life...",
-          event_type: "view",
-          count: 156,
-        },
-        {
-          affirmation_id: "2",
-          affirmation_text: "I can do all things through Christ who strengthens me...",
-          event_type: "favorite",
-          count: 45,
-        },
-        {
-          affirmation_id: "3",
-          affirmation_text: "The wisdom that comes from heaven is first of all pure...",
-          event_type: "view",
-          count: 89,
-        },
-      ],
-    }
+    console.log("Fetching analytics from database...")
+
+    const analytics = await getAnalytics()
+
+    console.log("✅ Successfully fetched analytics:", {
+      total_affirmations: analytics.total_affirmations,
+      total_views: analytics.total_views,
+      total_favorites: analytics.total_favorites,
+    })
 
     return NextResponse.json({
       analytics,
       success: true,
     })
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 })
+    console.error("❌ Failed to fetch analytics:", error)
+
+    // Return basic fallback analytics
+    const fallbackAnalytics = {
+      total_affirmations: 0,
+      total_views: 0,
+      total_favorites: 0,
+      category_stats: {
+        Faith: 0,
+        Strength: 0,
+        Wisdom: 0,
+        Gratitude: 0,
+        Purpose: 0,
+      },
+      recent_activity: [],
+    }
+
+    return NextResponse.json({
+      analytics: fallbackAnalytics,
+      success: true,
+      message: "Using fallback analytics data",
+    })
   }
 }

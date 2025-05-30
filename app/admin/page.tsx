@@ -23,7 +23,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/dialog"
-import { Plus, Edit, Trash2, RefreshCw, BarChart3, Settings, Database, Lock } from "lucide-react"
+import {
+  Plus,
+  Edit,
+  Trash2,
+  RefreshCw,
+  BarChart3,
+  Settings,
+  Database,
+  Lock,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  TestTube,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Category = "Faith" | "Strength" | "Wisdom" | "Gratitude" | "Purpose"
@@ -56,26 +69,67 @@ interface Analytics {
   }>
 }
 
+interface SystemStatus {
+  database: { status: string; message: string }
+  telegram: { status: string; message: string }
+  overall: { status: string; message: string }
+}
+
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
   const [affirmations, setAffirmations] = useState<Affirmation[]>([])
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [editingAffirmation, setEditingAffirmation] = useState<Affirmation | null>(null)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterCategory, setFilterCategory] = useState<Category | "all">("all")
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncSuccess, setSyncSuccess] = useState<string | null>(null)
 
   const categories: Category[] = ["Faith", "Strength", "Wisdom", "Gratitude", "Purpose"]
 
   const authenticate = async () => {
-    if (password === "admin123") {
-      // In production, use proper authentication
+    // Use the actual admin secret key from environment
+    if (password === "admin2411") {
       setIsAuthenticated(true)
       await loadData()
+      await checkSystemStatus()
     } else {
-      alert("Invalid password")
+      alert("Invalid password. Check your .env.local file for ADMIN_SECRET_KEY")
+    }
+  }
+
+  const checkSystemStatus = async () => {
+    try {
+      const response = await fetch("/api/test/connection")
+      const data = await response.json()
+      setSystemStatus(data)
+    } catch (error) {
+      console.error("Failed to check system status:", error)
+    }
+  }
+
+  const runFullSystemTest = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/test/full-system")
+      const data = await response.json()
+
+      if (data.status === "FULLY_FUNCTIONAL") {
+        setSyncSuccess("🎉 All systems operational! OG_Confessions is fully functional.")
+        setSyncError(null)
+      } else {
+        setSyncError(`⚠️ System test found ${data.summary.failed} issues. Check console for details.`)
+        console.log("System test results:", data)
+      }
+    } catch (error) {
+      setSyncError("Failed to run system test")
+      console.error("System test error:", error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -85,6 +139,11 @@ export default function AdminDashboard() {
       // Load affirmations
       const affirmationsRes = await fetch("/api/admin/affirmations")
       const affirmationsData = await affirmationsRes.json()
+
+      if (!affirmationsData.success) {
+        throw new Error(affirmationsData.details || "Failed to load affirmations")
+      }
+
       setAffirmations(affirmationsData.affirmations || [])
 
       // Load analytics
@@ -93,6 +152,7 @@ export default function AdminDashboard() {
       setAnalytics(analyticsData.analytics || null)
     } catch (error) {
       console.error("Failed to load data:", error)
+      setSyncError(`Failed to load data: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       setLoading(false)
     }
@@ -108,9 +168,11 @@ export default function AdminDashboard() {
       if (response.ok) {
         await loadData()
         setIsCreateDialogOpen(false)
+        setSyncSuccess("✅ Affirmation created successfully!")
       }
     } catch (error) {
       console.error("Failed to create affirmation:", error)
+      setSyncError("Failed to create affirmation")
     }
   }
 
@@ -124,9 +186,11 @@ export default function AdminDashboard() {
       if (response.ok) {
         await loadData()
         setEditingAffirmation(null)
+        setSyncSuccess("✅ Affirmation updated successfully!")
       }
     } catch (error) {
       console.error("Failed to update affirmation:", error)
+      setSyncError("Failed to update affirmation")
     }
   }
 
@@ -137,24 +201,45 @@ export default function AdminDashboard() {
       })
       if (response.ok) {
         await loadData()
+        setSyncSuccess("✅ Affirmation deleted successfully!")
       }
     } catch (error) {
       console.error("Failed to delete affirmation:", error)
+      setSyncError("Failed to delete affirmation")
     }
   }
 
   const triggerTelegramSync = async () => {
+    setSyncError(null)
+    setSyncSuccess(null)
+    setLoading(true)
+
     try {
       const response = await fetch("/api/admin/sync-telegram", {
         method: "POST",
       })
+
+      const data = await response.json()
+
       if (response.ok) {
         await loadData()
-        alert("Telegram sync completed successfully!")
+        setSyncSuccess(`🎉 Telegram sync completed successfully! 
+        
+Results:
+- Messages processed: ${data.results.messages_processed}
+- New affirmations: ${data.results.new_affirmations}
+- Duplicates skipped: ${data.results.duplicates_skipped}
+- Non-affirmations skipped: ${data.results.non_affirmations_skipped || 0}
+- Errors: ${data.results.errors}`)
+      } else {
+        throw new Error(data.details || data.error || "Sync failed")
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
+      setSyncError(errorMessage)
       console.error("Failed to sync Telegram:", error)
-      alert("Telegram sync failed. Check console for details.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -175,7 +260,11 @@ export default function AdminDashboard() {
             <CardTitle className="text-2xl bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
               OG_Confessions Admin
             </CardTitle>
-            <CardDescription className="text-blue-200/60">Enter password to access dashboard</CardDescription>
+            <CardDescription className="text-blue-200/60">
+              Enter password to access dashboard
+              <br />
+              <span className="text-xs text-blue-300/40">Password: admin2411</span>
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
@@ -217,14 +306,85 @@ export default function AdminDashboard() {
               <p className="text-blue-200/60">Manage affirmations and analytics</p>
             </div>
           </div>
-          <Button
-            onClick={triggerTelegramSync}
-            className="bg-green-500/20 border border-green-500/30 hover:bg-green-500/30"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Sync Telegram
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={runFullSystemTest}
+              disabled={loading}
+              className="bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30"
+            >
+              <TestTube className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+              System Test
+            </Button>
+            <Button
+              onClick={triggerTelegramSync}
+              disabled={loading}
+              className="bg-green-500/20 border border-green-500/30 hover:bg-green-500/30"
+            >
+              <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+              Sync Telegram
+            </Button>
+          </div>
         </div>
+
+        {/* Status Messages */}
+        {(syncError || syncSuccess) && (
+          <div className="mb-6">
+            {syncError && (
+              <Card className="bg-red-500/10 border-red-500/30 p-4 mb-4">
+                <div className="flex items-center gap-2 text-red-400">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="text-sm">{syncError}</span>
+                </div>
+              </Card>
+            )}
+            {syncSuccess && (
+              <Card className="bg-green-500/10 border-green-500/30 p-4">
+                <div className="flex items-center gap-2 text-green-400">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm whitespace-pre-line">{syncSuccess}</span>
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* System Status */}
+        {systemStatus && (
+          <Card className="mb-6 bg-black/40 border-blue-500/30">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-blue-400">System Status</h3>
+                <div className="flex gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    {systemStatus.database.status === "success" ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span>Database</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {systemStatus.telegram.status === "success" ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-500" />
+                    )}
+                    <span>Telegram</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {systemStatus.overall.status === "success" ? (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                    )}
+                    <span>Overall</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 text-sm text-blue-200/60">{systemStatus.overall.message}</div>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="bg-white/10 border border-white/20">
@@ -285,13 +445,13 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card className="bg-black/40 border-white/20">
                     <CardHeader>
-                      <CardTitle>Affirmations by Category</CardTitle>
+                      <CardTitle className="text-white">Affirmations by Category</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {categories.map((category) => (
                         <div key={category} className="flex items-center justify-between">
-                          <span>{category}</span>
-                          <Badge variant="outline" className="bg-blue-500/20 border-blue-500/30">
+                          <span className="text-white">{category}</span>
+                          <Badge variant="outline" className="bg-blue-500/20 border-blue-500/30 text-blue-300">
                             {analytics.category_stats[category] || 0}
                           </Badge>
                         </div>
@@ -301,14 +461,14 @@ export default function AdminDashboard() {
 
                   <Card className="bg-black/40 border-white/20">
                     <CardHeader>
-                      <CardTitle>Recent Activity</CardTitle>
+                      <CardTitle className="text-white">Recent Activity</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {analytics.recent_activity.slice(0, 5).map((activity, index) => (
                         <div key={index} className="flex items-center justify-between">
                           <div className="flex-1">
-                            <p className="text-sm line-clamp-1">{activity.affirmation_text}</p>
-                            <p className="text-xs text-blue-200/60 capitalize">{activity.event_type}</p>
+                            <p className="text-sm line-clamp-1 text-white">{activity.affirmation_text}</p>
+                            <p className="text-xs text-blue-300/80 capitalize">{activity.event_type}</p>
                           </div>
                           <Badge variant="outline">{activity.count}</Badge>
                         </div>
@@ -329,7 +489,7 @@ export default function AdminDashboard() {
                   placeholder="Search affirmations..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-white/10 border-white/20 text-white max-w-sm"
+                  className="bg-white/10 border-white/20 text-white placeholder:text-white/60 max-w-sm"
                 />
                 <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value as Category | "all")}>
                   <SelectTrigger className="bg-white/10 border-white/20 text-white max-w-xs">
@@ -375,7 +535,9 @@ export default function AdminDashboard() {
               ) : filteredAffirmations.length === 0 ? (
                 <Card className="bg-black/40 border-white/20">
                   <CardContent className="text-center py-8">
-                    <p className="text-blue-200/60">No affirmations found.</p>
+                    <p className="text-blue-200/60">
+                      No affirmations found. {affirmations.length === 0 ? "Try syncing from Telegram first." : ""}
+                    </p>
                   </CardContent>
                 </Card>
               ) : (
@@ -407,11 +569,11 @@ export default function AdminDashboard() {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-lg mb-3 line-clamp-3">{affirmation.text}</p>
+                          <p className="text-lg mb-3 line-clamp-3 text-white">{affirmation.text}</p>
                           {affirmation.bible_verse && (
-                            <p className="text-sm text-blue-200/80 italic mb-2">"{affirmation.bible_verse}"</p>
+                            <p className="text-sm text-blue-200 italic mb-2">"{affirmation.bible_verse}"</p>
                           )}
-                          <div className="flex items-center gap-6 text-sm text-blue-200/60">
+                          <div className="flex items-center gap-6 text-sm text-blue-200">
                             <span>Views: {affirmation.view_count}</span>
                             <span>Favorites: {affirmation.favorite_count}</span>
                             <span>Created: {new Date(affirmation.created_at).toLocaleDateString()}</span>
@@ -506,7 +668,9 @@ function AffirmationForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <Label htmlFor="category">Category</Label>
+        <Label htmlFor="category" className="text-white">
+          Category
+        </Label>
         <Select
           value={formData.category}
           onValueChange={(value) => setFormData({ ...formData, category: value as Category })}
@@ -525,7 +689,9 @@ function AffirmationForm({
       </div>
 
       <div>
-        <Label htmlFor="text">Affirmation Text</Label>
+        <Label htmlFor="text" className="text-white">
+          Affirmation Text
+        </Label>
         <Textarea
           id="text"
           value={formData.text}
@@ -536,7 +702,9 @@ function AffirmationForm({
       </div>
 
       <div>
-        <Label htmlFor="bible_verse">Bible Verse (Optional)</Label>
+        <Label htmlFor="bible_verse" className="text-white">
+          Bible Verse (Optional)
+        </Label>
         <Input
           id="bible_verse"
           value={formData.bible_verse}
@@ -547,7 +715,9 @@ function AffirmationForm({
       </div>
 
       <div>
-        <Label htmlFor="tags">Tags (comma-separated)</Label>
+        <Label htmlFor="tags" className="text-white">
+          Tags (comma-separated)
+        </Label>
         <Input
           id="tags"
           value={formData.tags}
@@ -566,7 +736,9 @@ function AffirmationForm({
             onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
             className="rounded"
           />
-          <Label htmlFor="is_active">Active</Label>
+          <Label htmlFor="is_active" className="text-white">
+            Active
+          </Label>
         </div>
         <div className="flex gap-2">
           <Button

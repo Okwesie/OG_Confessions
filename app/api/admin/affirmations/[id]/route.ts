@@ -1,61 +1,66 @@
 import { NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
-// Mock database - replace with actual database integration
-const mockAffirmations = [
-  {
-    id: "1",
-    text: "My faith is my anchor in the storms of life. I will trust in the Lord with all my heart and lean not on my own understanding.",
-    category: "Faith",
-    source_platform: "telegram",
-    source_message_id: "msg_001",
-    created_at: "2024-01-15T10:30:00Z",
-    updated_at: "2024-01-15T10:30:00Z",
-    is_active: true,
-    bible_verse: "Proverbs 3:5-6",
-    tags: ["faith", "trust", "guidance"],
-    view_count: 156,
-    favorite_count: 23,
-  },
-]
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
     const data = await request.json()
-    const affirmationIndex = mockAffirmations.findIndex((a) => a.id === params.id)
+    const id = params.id
 
-    if (affirmationIndex === -1) {
+    // Update in database
+    const { data: updatedData, error } = await supabase
+      .from("affirmations")
+      .update({
+        text: data.text,
+        category: data.category,
+        bible_verse: data.bible_verse,
+        tags: data.tags,
+        is_active: data.is_active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+
+    if (error) {
+      console.error("Failed to update affirmation:", error)
+      return NextResponse.json({ error: "Failed to update affirmation" }, { status: 500 })
+    }
+
+    if (updatedData.length === 0) {
       return NextResponse.json({ error: "Affirmation not found" }, { status: 404 })
     }
 
-    mockAffirmations[affirmationIndex] = {
-      ...mockAffirmations[affirmationIndex],
-      ...data,
-      updated_at: new Date().toISOString(),
-    }
-
     return NextResponse.json({
-      affirmation: mockAffirmations[affirmationIndex],
+      affirmation: updatedData[0],
       success: true,
     })
   } catch (error) {
+    console.error("Failed to update affirmation:", error)
     return NextResponse.json({ error: "Failed to update affirmation" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
-    const affirmationIndex = mockAffirmations.findIndex((a) => a.id === params.id)
+    const id = params.id
 
-    if (affirmationIndex === -1) {
-      return NextResponse.json({ error: "Affirmation not found" }, { status: 404 })
+    // Delete from database
+    const { error } = await supabase.from("affirmations").delete().eq("id", id)
+
+    if (error) {
+      console.error("Failed to delete affirmation:", error)
+      return NextResponse.json({ error: "Failed to delete affirmation" }, { status: 500 })
     }
-
-    mockAffirmations.splice(affirmationIndex, 1)
 
     return NextResponse.json({
       success: true,
     })
   } catch (error) {
+    console.error("Failed to delete affirmation:", error)
     return NextResponse.json({ error: "Failed to delete affirmation" }, { status: 500 })
   }
 }

@@ -5,40 +5,36 @@ import { NextResponse } from "next/server"
 
 export async function POST() {
   try {
-    console.log("🚀 Starting Telegram sync from admin dashboard...")
+    console.log("Starting Telegram sync...")
 
     // Validate environment variables
     if (!process.env.TELEGRAM_BOT_TOKEN) {
-      throw new Error("TELEGRAM_BOT_TOKEN is not configured. Please check your environment variables.")
+      return NextResponse.json({ success: false, error: "TELEGRAM_BOT_TOKEN is not configured" }, { status: 400 })
     }
 
     if (!process.env.TELEGRAM_CHANNEL_ID) {
-      throw new Error("TELEGRAM_CHANNEL_ID is not configured. Please check your environment variables.")
+      return NextResponse.json({ success: false, error: "TELEGRAM_CHANNEL_ID is not configured" }, { status: 400 })
     }
 
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Supabase configuration is missing. Please check your environment variables.")
+      return NextResponse.json({ success: false, error: "Supabase configuration is missing" }, { status: 400 })
     }
 
     // Ensure database table exists
     await ensureTableExists()
-    console.log("✅ Database connection verified")
 
+    // Initialize Telegram service
     const telegram = new TelegramService()
 
-    // Test bot connection
-    const botInfo = await telegram.getBotInfo()
-    console.log(`✅ Bot connected: @${botInfo.username}`)
-
     // Get existing message IDs to avoid duplicates
-    console.log("📋 Getting existing message IDs...")
+    console.log("Getting existing message IDs...")
     const existingMessageIds = await getExistingMessageIds("telegram")
-    console.log(`📊 Found ${existingMessageIds.length} existing messages in database`)
+    console.log(`Found ${existingMessageIds.length} existing messages in database`)
 
-    // Fetch latest messages from Telegram
-    console.log("📥 Fetching messages from Telegram...")
-    const messages = await telegram.getChannelMessages(50) // Increased to 50 for better sync
-    console.log(`📨 Fetched ${messages.length} messages from Telegram`)
+    // Fetch latest 100 messages from Telegram
+    console.log("Fetching messages from Telegram...")
+    const messages = await telegram.getChannelMessages(100)
+    console.log(`Fetched ${messages.length} messages from Telegram`)
 
     if (messages.length === 0) {
       return NextResponse.json({
@@ -48,7 +44,6 @@ export async function POST() {
           new_affirmations: 0,
           duplicates_skipped: 0,
           errors: 0,
-          last_sync: new Date().toISOString(),
           message: "No messages found. Check your bot permissions and channel ID.",
         },
       })
@@ -59,7 +54,6 @@ export async function POST() {
     let savedCount = 0
     let duplicatesSkipped = 0
     let errorsCount = 0
-    let nonAffirmationsSkipped = 0
     const sampleAffirmations: any[] = []
 
     for (const message of messages) {
@@ -77,8 +71,7 @@ export async function POST() {
 
         // Only save if it appears to be an affirmation
         if (!processed.is_affirmation) {
-          nonAffirmationsSkipped++
-          console.log(`⏭️ Skipping non-affirmation: ${message.text.substring(0, 50)}...`)
+          console.log(`Skipping non-affirmation: ${message.text.substring(0, 50)}...`)
           continue
         }
 
@@ -98,7 +91,6 @@ export async function POST() {
 
         if (saveResult.success) {
           savedCount++
-          console.log(`✅ Saved affirmation ${message.message_id}: ${processed.category}`)
 
           // Add to sample for response (first 3)
           if (sampleAffirmations.length < 3) {
@@ -107,7 +99,6 @@ export async function POST() {
               category: processed.category,
               tags: processed.tags,
               bible_verse: processed.bible_verse,
-              message_id: message.message_id,
             })
           }
         } else {
@@ -115,12 +106,12 @@ export async function POST() {
             duplicatesSkipped++
           } else {
             errorsCount++
-            console.error(`❌ Error saving message ${message.message_id}:`, saveResult.error)
+            console.error(`Error saving message ${message.message_id}:`, saveResult.error)
           }
         }
       } catch (error) {
         errorsCount++
-        console.error(`❌ Error processing message ${message.message_id}:`, error)
+        console.error(`Error processing message ${message.message_id}:`, error)
       }
     }
 
@@ -129,24 +120,19 @@ export async function POST() {
       messages_processed: processedCount,
       new_affirmations: savedCount,
       duplicates_skipped: duplicatesSkipped,
-      non_affirmations_skipped: nonAffirmationsSkipped,
       errors: errorsCount,
       last_sync: new Date().toISOString(),
       sample_affirmations: sampleAffirmations,
-      bot_info: {
-        username: botInfo.username,
-        first_name: botInfo.first_name,
-      },
     }
 
-    console.log("🎉 Telegram sync completed:", results)
+    console.log("Sync completed:", results)
 
     return NextResponse.json({
       success: true,
       results,
     })
   } catch (error: any) {
-    console.error("❌ Telegram sync error:", error)
+    console.error("Telegram sync error:", error)
 
     return NextResponse.json(
       {
@@ -157,4 +143,9 @@ export async function POST() {
       { status: 500 },
     )
   }
+}
+
+export async function GET() {
+  // Allow GET requests for testing
+  return POST()
 }
