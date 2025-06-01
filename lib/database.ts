@@ -194,7 +194,7 @@ export async function updateAffirmationAnalytics(
       return false
     }
 
-    const newCount = (current[field] || 0) + 1
+    const newCount = ((current as Record<typeof field, number>)[field] || 0) + 1
     const { error: updateError } = await supabase
       .from("affirmations")
       .update({ [field]: newCount })

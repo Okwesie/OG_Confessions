@@ -87,11 +87,17 @@ export class TelegramService {
         const isFromTargetChannel = this.isFromTargetChannel(message.chat)
 
         if (isFromTargetChannel) {
+          let from: string
+          if (update.message && update.message.from) {
+            from = update.message.from.username || update.message.from.first_name || "channel"
+          } else {
+            from = "channel"
+          }
           messages.push({
             message_id: message.message_id,
             text: message.text, // FULL TEXT - no truncation
             date: message.date,
-            from: message.from?.username || message.from?.first_name || "channel",
+            from,
           })
         }
       }
