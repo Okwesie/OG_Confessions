@@ -145,7 +145,7 @@ const HomePage = () => {
           </div>
         </div>
 
-        {/* Categories Grid */}
+        {/* Categories Grids */}
         <div className="max-w-7xl mx-auto px-6 pb-16">
           {loading ? (
             <div className="text-center py-16">
