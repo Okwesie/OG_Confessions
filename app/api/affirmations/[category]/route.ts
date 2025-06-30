@@ -8,10 +8,31 @@ export async function GET(request: Request, { params }: { params: { category: st
     // Validate category
     const validCategories = ["Faith", "Strength", "Wisdom", "Gratitude", "Purpose"]
     if (!validCategories.includes(category)) {
-      return NextResponse.json({ error: "Invalid category" }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: "Invalid category",
+          affirmations: [],
+          success: false,
+        },
+        { status: 400 },
+      )
     }
 
-    console.log(`Fetching affirmations for category: ${category}`)
+    console.log(`🔍 Fetching affirmations for category: ${category}`)
+
+    // Test database connection first
+    const { testDatabaseConnection } = await import("@/lib/database")
+    const connectionTest = await testDatabaseConnection()
+
+    if (!connectionTest.success) {
+      console.error("❌ Database connection failed:", connectionTest.error)
+      return NextResponse.json({
+        affirmations: [],
+        success: true,
+        message: `Database connection failed. Please try syncing content first.`,
+        error: connectionTest.error,
+      })
+    }
 
     const affirmations = await getAffirmationsByCategory(category)
 
@@ -38,7 +59,8 @@ export async function GET(request: Request, { params }: { params: { category: st
     return NextResponse.json({
       affirmations: [],
       success: true,
-      message: "No affirmations found for this category",
+      message: "Failed to load affirmations. Please try again or sync content first.",
+      error: error instanceof Error ? error.message : "Unknown error",
     })
   }
 }

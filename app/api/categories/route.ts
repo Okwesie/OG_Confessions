@@ -7,7 +7,21 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function GET() {
   try {
-    console.log("Fetching dynamic categories from database...")
+    console.log("🔍 Fetching dynamic categories from database...")
+
+    // Test database connection first
+    const { testDatabaseConnection } = await import("@/lib/database")
+    const connectionTest = await testDatabaseConnection()
+
+    if (!connectionTest.success) {
+      console.error("❌ Database connection failed:", connectionTest.error)
+      return NextResponse.json({
+        categories: getFallbackCategories(),
+        success: true,
+        message: "Using fallback categories due to database connection issue",
+        error: connectionTest.error,
+      })
+    }
 
     // Get all active affirmations with their categories
     const { data: affirmations, error } = await supabase
@@ -17,11 +31,21 @@ export async function GET() {
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Database error:", error)
+      console.error("❌ Database query error:", error)
       return NextResponse.json({
-        categories: [],
-        success: false,
+        categories: getFallbackCategories(),
+        success: true,
+        message: "Using fallback categories due to database query error",
         error: error.message,
+      })
+    }
+
+    if (!affirmations || affirmations.length === 0) {
+      console.log("📝 No affirmations found, returning fallback categories")
+      return NextResponse.json({
+        categories: getFallbackCategories(),
+        success: true,
+        message: "No affirmations found in database, showing default categories",
       })
     }
 
@@ -187,4 +211,60 @@ function getCategoryPreview(category: string): string {
   }
 
   return previews[category] || `God blesses me with ${category.toLowerCase()}...`
+}
+
+// Fallback categories when database is not available
+function getFallbackCategories() {
+  return [
+    {
+      name: "Faith",
+      count: 0,
+      last_updated: new Date().toISOString(),
+      description: "Affirmations to strengthen your faith and spiritual journey",
+      icon: "Heart",
+      gradient: "from-blue-500/20 to-indigo-600/20",
+      borderColor: "border-blue-500/30 hover:border-blue-400/50",
+      preview: "My faith is my anchor in the storms of life...",
+    },
+    {
+      name: "Strength",
+      count: 0,
+      last_updated: new Date().toISOString(),
+      description: "Affirmations for courage and spiritual strength",
+      icon: "TrendingUp",
+      gradient: "from-purple-500/20 to-violet-600/20",
+      borderColor: "border-purple-500/30 hover:border-purple-400/50",
+      preview: "I am strong because God is my strength...",
+    },
+    {
+      name: "Wisdom",
+      count: 0,
+      last_updated: new Date().toISOString(),
+      description: "Biblical wisdom and guidance for daily living",
+      icon: "BookOpen",
+      gradient: "from-amber-500/20 to-yellow-600/20",
+      borderColor: "border-amber-500/30 hover:border-amber-400/50",
+      preview: "The wisdom of God guides my every decision...",
+    },
+    {
+      name: "Gratitude",
+      count: 0,
+      last_updated: new Date().toISOString(),
+      description: "Expressions of thankfulness and praise",
+      icon: "Users",
+      gradient: "from-green-500/20 to-emerald-600/20",
+      borderColor: "border-green-500/30 hover:border-green-400/50",
+      preview: "I am grateful for God's endless blessings in my life...",
+    },
+    {
+      name: "Purpose",
+      count: 0,
+      last_updated: new Date().toISOString(),
+      description: "Discovering and living your God-given purpose",
+      icon: "Briefcase",
+      gradient: "from-pink-500/20 to-rose-600/20",
+      borderColor: "border-pink-500/30 hover:border-pink-400/50",
+      preview: "I was created with divine purpose and meaning...",
+    },
+  ]
 }

@@ -1,11 +1,30 @@
 // lib/database.ts
 import { createClient } from "@supabase/supabase-js"
 
-// Use the correct Supabase environment variables
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+// Use multiple fallback options for environment variables
+const supabaseUrl =
+  process.env.SUPABASE_URL || process.env.SUPABASE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SUPABASE_SERVICE_ROLE_KEY
+
+// Add better error logging
+if (!supabaseUrl) {
+  console.error("❌ Missing Supabase URL. Available env vars:", {
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    SUPABASE_SUPABASE_URL: !!process.env.SUPABASE_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+  })
+}
+
+if (!supabaseServiceKey) {
+  console.error("❌ Missing Supabase Service Role Key. Available env vars:", {
+    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SUPABASE_SERVICE_ROLE_KEY,
+  })
+}
 
 if (!supabaseUrl || !supabaseServiceKey) {
+  console.error("Missing Supabase environment variables. Please check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
   throw new Error("Missing Supabase environment variables. Please check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
 }
 
@@ -124,7 +143,6 @@ export async function getExistingMessageIds(sourcePlatform = "telegram"): Promis
 
 /**
  * Get affirmations by category
- * UPDATED: Return complete text without truncation
  */
 export async function getAffirmationsByCategory(category: string): Promise<any[]> {
   try {
@@ -194,7 +212,7 @@ export async function updateAffirmationAnalytics(
       return false
     }
 
-    const newCount = ((current as Record<typeof field, number>)[field] || 0) + 1
+    const newCount = (current[field] || 0) + 1
     const { error: updateError } = await supabase
       .from("affirmations")
       .update({ [field]: newCount })
@@ -292,5 +310,39 @@ export async function ensureTableExists(): Promise<void> {
   } catch (error) {
     console.error("Error checking table existence:", error)
     throw error
+  }
+}
+
+/**
+ * Test database connection
+ */
+export async function testDatabaseConnection(): Promise<{ success: boolean; error?: string; details?: any }> {
+  try {
+    console.log("🔍 Testing database connection...")
+
+    // Test basic connection
+    const { data, error } = await supabase.from("affirmations").select("count").limit(1)
+
+    if (error) {
+      return {
+        success: false,
+        error: error.message,
+        details: {
+          code: error.code,
+          hint: error.hint,
+          details: error.details,
+        },
+      }
+    }
+
+    console.log("✅ Database connection successful")
+    return { success: true }
+  } catch (error) {
+    console.error("❌ Database connection failed:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+      details: error,
+    }
   }
 }

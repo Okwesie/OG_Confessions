@@ -62,7 +62,7 @@ export function validateDatabaseConfig() {
 }
 
 // Helper to check if feature is enabled
-/*export function isFeatureEnabled(feature: string): boolean {
+export function isFeatureEnabled(feature: string): boolean {
   switch (feature) {
     case "ai_categorization":
       return !!env.OPENAI_API_KEY
@@ -76,7 +76,7 @@ export function validateDatabaseConfig() {
       return false
   }
 }
-*/
+
 // Test Telegram connection
 export async function testTelegramConnection() {
   try {

@@ -42,16 +42,33 @@ interface TelegramResponse {
 }
 
 export class TelegramService {
-  private botToken = process.env.TELEGRAM_BOT_TOKEN!
-  private channelId = process.env.TELEGRAM_CHANNEL_ID!
+  private botToken: string
+  private channelId: string
 
   constructor() {
+    // Check multiple environment variable sources
+    this.botToken = process.env.TELEGRAM_BOT_TOKEN || ""
+    this.channelId = process.env.TELEGRAM_CHANNEL_ID || ""
+
     if (!this.botToken) {
+      console.error("❌ TELEGRAM_BOT_TOKEN is missing. Available env vars:", {
+        TELEGRAM_BOT_TOKEN: !!process.env.TELEGRAM_BOT_TOKEN,
+        NODE_ENV: process.env.NODE_ENV,
+      })
       throw new Error("TELEGRAM_BOT_TOKEN is required")
     }
     if (!this.channelId) {
+      console.error("❌ TELEGRAM_CHANNEL_ID is missing. Available env vars:", {
+        TELEGRAM_CHANNEL_ID: !!process.env.TELEGRAM_CHANNEL_ID,
+        NODE_ENV: process.env.NODE_ENV,
+      })
       throw new Error("TELEGRAM_CHANNEL_ID is required")
     }
+
+    console.log("✅ Telegram service initialized with:", {
+      botToken: this.botToken.substring(0, 10) + "...",
+      channelId: this.channelId,
+    })
   }
 
   /**
@@ -60,20 +77,34 @@ export class TelegramService {
    */
   async getChannelMessages(limit = 100): Promise<TelegramMessage[]> {
     try {
+      console.log(`🔍 Fetching ${limit} messages from Telegram channel: ${this.channelId}`)
+
       // Get updates from Telegram Bot API
       const url = `https://api.telegram.org/bot${this.botToken}/getUpdates?limit=${limit}&allowed_updates=["message","channel_post"]`
 
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // Add timeout for production
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      })
 
       if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ HTTP error! status: ${response.status}, body: ${errorText}`)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
       const data: TelegramResponse = await response.json()
 
       if (!data.ok) {
+        console.error(`❌ Telegram API error:`, data)
         throw new Error(`Telegram API error: ${data.description || "Unknown error"}`)
       }
+
+      console.log(`📨 Received ${data.result.length} updates from Telegram`)
 
       // Process both regular messages and channel posts
       const messages: TelegramMessage[] = []

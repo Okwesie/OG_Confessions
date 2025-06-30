@@ -17,7 +17,7 @@
 ## 🚀 Getting Started
 
 ### 1. Clone the Repo
-```bash
+\`\`\`bash
 git clone https://github.com/Okwesie/OG_Confessions.git
 cd OG_Confessions
 

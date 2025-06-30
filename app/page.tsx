@@ -49,37 +49,60 @@ const HomePage = () => {
       try {
         setLoading(true)
 
-        // Fetch dynamic categories
-        const categoriesResponse = await fetch("/api/categories")
-        const categoriesData = await categoriesResponse.json()
+        console.log("🔍 Loading categories and stats...")
 
-        if (categoriesData.success && categoriesData.categories) {
+        // Fetch dynamic categories with better error handling
+        const categoriesResponse = await fetch("/api/categories", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (!categoriesResponse.ok) {
+          throw new Error(`HTTP error! status: ${categoriesResponse.status}`)
+        }
+
+        const categoriesData = await categoriesResponse.json()
+        console.log("📊 Categories response:", categoriesData)
+
+        if (categoriesData.success && categoriesData.categories && Array.isArray(categoriesData.categories)) {
           const formattedCategories = categoriesData.categories.map((cat: any) => ({
-            name: cat.name,
+            name: cat.name || "Unknown",
             icon: iconMap[cat.icon] || <Heart className="w-8 h-8" />,
-            description: cat.description,
-            count: cat.count,
-            gradient: cat.gradient,
-            borderColor: cat.borderColor,
-            preview: cat.preview,
-            last_updated: cat.last_updated,
+            description: cat.description || `Spiritual affirmations about ${cat.name?.toLowerCase() || "faith"}`,
+            count: cat.count || 0,
+            gradient: cat.gradient || "from-blue-500/20 to-purple-600/20",
+            borderColor: cat.borderColor || "border-blue-500/30 hover:border-blue-400/50",
+            preview: cat.preview || "Spiritual guidance and affirmations...",
+            last_updated: cat.last_updated || new Date().toISOString(),
           }))
 
           setCategories(formattedCategories)
           setStats({
-            totalAffirmations: categoriesData.total_affirmations,
-            totalCategories: categoriesData.total_categories,
+            totalAffirmations: categoriesData.total_affirmations || 0,
+            totalCategories: categoriesData.total_categories || formattedCategories.length,
             isDaily: "Daily",
           })
 
           console.log(`✅ Loaded ${formattedCategories.length} dynamic categories`)
         } else {
-          console.warn("No categories found:", categoriesData)
+          console.warn("⚠️ Invalid categories data structure:", categoriesData)
           setCategories([])
+          setStats({
+            totalAffirmations: 0,
+            totalCategories: 0,
+            isDaily: "Daily",
+          })
         }
       } catch (error) {
-        console.error("Failed to load categories:", error)
+        console.error("❌ Failed to load categories:", error)
         setCategories([])
+        setStats({
+          totalAffirmations: 0,
+          totalCategories: 0,
+          isDaily: "Daily",
+        })
       } finally {
         setLoading(false)
       }
