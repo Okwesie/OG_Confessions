@@ -212,7 +212,8 @@ export async function updateAffirmationAnalytics(
       return false
     }
 
-    const newCount = (current[field] || 0) + 1
+    const currentCount = current?.[field as keyof typeof current] || 0
+    const newCount = (typeof currentCount === 'number' ? currentCount : 0) + 1
     const { error: updateError } = await supabase
       .from("affirmations")
       .update({ [field]: newCount })
@@ -310,6 +311,46 @@ export async function ensureTableExists(): Promise<void> {
   } catch (error) {
     console.error("Error checking table existence:", error)
     throw error
+  }
+}
+
+/**
+ * Delete confessions older than two days
+ * This function should be called periodically (e.g., via cron job or on app startup)
+ */
+export async function deleteOldConfessions(): Promise<{ success: boolean; deletedCount?: number; error?: string }> {
+  try {
+    console.log("🧹 Starting cleanup of old confessions...")
+    
+    // Calculate date two days ago
+    const twoDaysAgo = new Date()
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+    const cutoffDate = twoDaysAgo.toISOString()
+    
+    console.log(`🗓️ Deleting confessions older than: ${cutoffDate}`)
+    
+    // Delete confessions older than 2 days
+    const { data, error } = await supabase
+      .from("affirmations")
+      .delete()
+      .lt("created_at", cutoffDate)
+      .select("id")
+    
+    if (error) {
+      console.error("❌ Error deleting old confessions:", error)
+      return { success: false, error: error.message }
+    }
+    
+    const deletedCount = data?.length || 0
+    console.log(`✅ Cleanup complete. Deleted ${deletedCount} old confessions`)
+    
+    return { success: true, deletedCount }
+  } catch (error) {
+    console.error("❌ Error in deleteOldConfessions:", error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error" 
+    }
   }
 }
 
