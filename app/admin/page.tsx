@@ -263,7 +263,7 @@ Results:
             <CardDescription className="text-blue-200/60">
               Enter password to access dashboard
               <br />
-              <span className="text-xs text-blue-300/40">Password: admin2411</span>
+              <span className="text-xs text-blue-300/40"></span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
