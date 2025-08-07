@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
 // Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+const supabaseUrl = 'https://rpszhmtkopabgbsrzqmx.supabase.co'
+const supabaseKey = process.env.SUPABASE_KEY!
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   try {
