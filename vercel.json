@@ -1,13 +1,4 @@
 {
-  "env": {
-    "SUPABASE_URL": "@supabase_url",
-    "SUPABASE_ANON_KEY": "@supabase_anon_key", 
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
-    "TELEGRAM_BOT_TOKEN": "@telegram_bot_token",
-    "TELEGRAM_CHANNEL_ID": "@telegram_channel_id",
-    "ADMIN_SECRET_KEY": "@admin_secret_key",
-    "NODE_ENV": "production"
-  },
   "functions": {
     "app/api/**/*": {
       "maxDuration": 30
