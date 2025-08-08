@@ -73,27 +73,103 @@ export class TelegramService {
 
   /**
    * Fetch the latest messages from the Telegram channel
-   * UPDATED: Get complete message content without truncation
+   * FIXED: Use getChatHistory instead of getUpdates to avoid 409 conflicts
    */
   async getChannelMessages(limit = 100): Promise<TelegramMessage[]> {
     try {
       console.log(`🔍 Fetching ${limit} messages from Telegram channel: ${this.channelId}`)
 
-      // Get updates from Telegram Bot API
-      const url = `https://api.telegram.org/bot${this.botToken}/getUpdates?limit=${limit}&allowed_updates=["message","channel_post"]`
+      // First, get chat info to verify access
+      const chatInfo = await this.getChatInfo()
+      console.log(`✅ Chat info retrieved: ${chatInfo.title || chatInfo.username}`)
+
+      // Try getUpdates first (more reliable for channel posts)
+      try {
+        return await this.getChannelMessagesAlternative(limit)
+      } catch (error) {
+        console.log("🔄 getUpdates failed, trying getChatHistory...")
+        return await this.getChannelMessagesWithHistory(limit)
+      }
+    } catch (error) {
+      console.error("Error fetching Telegram messages:", error)
+      throw new Error(`Failed to fetch messages: ${error instanceof Error ? error.message : "Unknown error"}`)
+    }
+  }
+
+  /**
+   * Method using getChatHistory (alternative approach)
+   */
+  async getChannelMessagesWithHistory(limit = 100): Promise<TelegramMessage[]> {
+    try {
+      console.log(`🔄 Using getChatHistory method...`)
+
+      const url = `https://api.telegram.org/bot${this.botToken}/getChatHistory?chat_id=${this.channelId}&limit=${limit}`
 
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
-        // Add timeout for production
-        signal: AbortSignal.timeout(30000), // 30 second timeout
+        signal: AbortSignal.timeout(30000),
       })
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`❌ HTTP error! status: ${response.status}, body: ${errorText}`)
+        console.error(`❌ getChatHistory failed! status: ${response.status}, body: ${errorText}`)
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (!data.ok) {
+        console.error(`❌ Telegram API error:`, data)
+        throw new Error(`Telegram API error: ${data.description || "Unknown error"}`)
+      }
+
+      console.log(`📨 Received ${data.result.length} messages from getChatHistory`)
+
+      // Process messages from getChatHistory format
+      const messages: TelegramMessage[] = []
+
+      for (const message of data.result) {
+        if (!message.text) continue
+
+        messages.push({
+          message_id: message.message_id,
+          text: message.text,
+          date: message.date,
+          from: "channel",
+        })
+      }
+
+      return messages.sort((a, b) => b.date - a.date)
+    } catch (error) {
+      console.error("Error in getChatHistory method:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Alternative method using getUpdates (primary method)
+   */
+  async getChannelMessagesAlternative(limit = 100): Promise<TelegramMessage[]> {
+    try {
+      console.log(`🔄 Using getUpdates method...`)
+
+      // Get updates from Telegram Bot API
+      const url = `https://api.telegram.org/bot${this.botToken}/getUpdates?limit=${limit}&allowed_updates=["channel_post"]`
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(30000),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ getUpdates failed! status: ${response.status}, body: ${errorText}`)
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
@@ -106,11 +182,11 @@ export class TelegramService {
 
       console.log(`📨 Received ${data.result.length} updates from Telegram`)
 
-      // Process both regular messages and channel posts
+      // Process channel posts only
       const messages: TelegramMessage[] = []
 
       for (const update of data.result) {
-        const message = update.message || update.channel_post
+        const message = update.channel_post
 
         if (!message || !message.text) continue
 
@@ -118,17 +194,11 @@ export class TelegramService {
         const isFromTargetChannel = this.isFromTargetChannel(message.chat)
 
         if (isFromTargetChannel) {
-          let from: string
-          if (update.message && update.message.from) {
-            from = update.message.from.username || update.message.from.first_name || "channel"
-          } else {
-            from = "channel"
-          }
           messages.push({
             message_id: message.message_id,
-            text: message.text, // FULL TEXT - no truncation
+            text: message.text,
             date: message.date,
-            from,
+            from: "channel",
           })
         }
       }
@@ -136,8 +206,8 @@ export class TelegramService {
       // Sort by newest first and return
       return messages.sort((a, b) => b.date - a.date)
     } catch (error) {
-      console.error("Error fetching Telegram messages:", error)
-      throw new Error(`Failed to fetch messages: ${error instanceof Error ? error.message : "Unknown error"}`)
+      console.error("Error in getUpdates method:", error)
+      throw error
     }
   }
 
